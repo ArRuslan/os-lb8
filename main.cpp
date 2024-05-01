@@ -15,9 +15,9 @@ struct Task1ThreadParam {
 };
 
 uint32_t WINAPI task1_thread(void* param) {
-    auto par = (Task1ThreadParam*)param;
+    const auto par = static_cast<Task1ThreadParam*>(param);
 #ifndef NDEBUG
-    uint32_t num = par->threadNum;
+    const uint32_t num = par->threadNum;
     printf("Thread #%d started: %ld\n", num, clock());
 #endif
     par->mtx->lock();
@@ -27,7 +27,7 @@ uint32_t WINAPI task1_thread(void* param) {
     free(param);
 
     for(int i = 0; i < 4 * 1024; i++) {
-        clock_t wait_for = clock() + 4 * 1024;
+        const clock_t wait_for = clock() + 4 * 1024;
         while(clock() < wait_for) {}
     }
 
@@ -50,9 +50,9 @@ void task1() {
     uint8_t counter;
     std::mutex mtx;
     uint32_t threadId;
-    void** threads = new void*[10];
+    const auto threads = new void*[10];
     for(uint32_t i = 0; i < 10; i++) {
-        auto param = (Task1ThreadParam*)malloc(sizeof(Task1ThreadParam));
+        const auto param = static_cast<Task1ThreadParam*>(malloc(sizeof(Task1ThreadParam)));
         param->threadNum = i;
         param->mtx = &mtx;
         param->counter = &counter;
@@ -66,7 +66,8 @@ void task1() {
 }
 
 uint32_t WINAPI task2_thread(void* param) {
-    uint64_t n = 1024 * 1024 * 512, a = 0, b = 1, c = 0;
+    constexpr uint32_t n = 1024 * 1024 * 64;
+    uint32_t a = 0, b = 1, c = 0;
 
     for (int i = 1; i <= n; ++i) {
         if(i == 1 || i == 2)
@@ -82,38 +83,34 @@ uint32_t WINAPI task2_thread(void* param) {
 void task2() {
     /*
      * Визначити максимальну кількість потоків, які можна запустити та чекати їх завершення.
-     * Для цього зробити цикл для кількості потоків 2, 4, 8, …, в якому створити задану кількість потоків, які формують кількість викликів потокової функції; чекати їх завершення.
+     * Cтворити задану кількість потоків, які формують кількість викликів потокової функції; чекати їх завершення.
      * Якщо кількість викликів потокової функції не співпадає з кількістю потоків, вийти з циклу.
      */
 
-    // NOT WORKING
-
+    const uint32_t shouldReturn = task2_thread(nullptr);
+    const uint32_t threadCount = std::thread::hardware_concurrency();
+    const auto threads = new void*[threadCount];
     uint32_t threadId;
-    for(int i = 0; i <= 5; i++) {
-        uint32_t threadCount = std::pow(2, i);
-        void** threads = new void*[threadCount];
-
-        printf("Starting %d threads...\n", threadCount);
-
-        for(int j = 0; j < threadCount; j++) {
-            threads[i] = CreateThread(nullptr, 0, &task2_thread, nullptr, 0, &threadId);
-            if(threads[i] == nullptr) {
-                printf("thread is nullptr!!!\n");
-            }
-        }
-
-        clock_t cl = clock();
-        WaitForMultipleObjects(threadCount, threads, true, INFINITE);
-        printf("Wait (for all threads) took %ld\n", clock() - cl);
-
-        for(int j = 0; j < threadCount; j++) {
-            CloseHandle(threads[i]);
-        }
-        delete[] threads;
+    for(int i = 0; i < threadCount; i++) {
+        threads[i] = CreateThread(nullptr, 0, &task2_thread, nullptr, 0, &threadId);
     }
+
+    WaitForMultipleObjects(threadCount, threads, true, INFINITE);
+
+    for(int i = 0; i < threadCount; i++) {
+        uint32_t code;
+        GetExitCodeThread(threads[i], &code);
+        if(code == shouldReturn)
+            printf("Thread %d finished successfully\n", i);
+        else
+            printf("Thread %d finished with invalid return code\n", i);
+        CloseHandle(threads[i]);
+    }
+
+    delete[] threads;
 }
 
-void task_4_writer(std::mutex& mtx, std::deque<std::string>& deq, int writer_num, int write_count) {
+void task_4_writer(std::mutex& mtx, std::deque<std::string>& deq, const int writer_num, const int write_count) {
     for (int i = 0; i < write_count; i++) {
         mtx.lock();
         deq.push_back("news #" + std::to_string(i) + " from writer #" + std::to_string(writer_num));
@@ -121,7 +118,7 @@ void task_4_writer(std::mutex& mtx, std::deque<std::string>& deq, int writer_num
     }
 }
 
-void task_4_reader(std::mutex& mtx, std::deque<std::string>& deq, int reader_num, int& news_left) {
+void task_4_reader(std::mutex& mtx, std::deque<std::string>& deq, const int reader_num, int& news_left) {
     while (true) {
         mtx.lock();
         if (!news_left) {
@@ -173,7 +170,7 @@ enum Task5State {
     PUT_FORK2 = 5,
 };
 
-std::string task_5_str_state(int state) {
+std::string task_5_str_state(const int state) {
     switch (state) {
     case THINKING:
         return "thinking";
@@ -192,7 +189,7 @@ std::string task_5_str_state(int state) {
     }
 }
 
-void task_5_thread(std::mutex& mtx, int p_num, int loop_count) {
+void task_5_thread(std::mutex& mtx, const int p_num, const int loop_count) {
     for (int i = 0; i < loop_count; i++) {
         int state = -1;
         while(state < PUT_FORK2) {
@@ -231,16 +228,14 @@ void task6() {
      * Внести зміну в об’єкти синхронізації, які потрібні.
      */
 
-
-
-    // TODO
+    // TODO: what
 }
 
 int main() {
     //task1();
     task2();
-    /*task3_4(); // Done
-    task5(); // Done
+    /*task3_4();
+    task5();
     task6();*/
 
     return 0;
