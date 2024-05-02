@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 
 sem_t* sem = nullptr;
+pid_t pid = 0;
 constexpr uint32_t SLEEP_MS = 10;
 
 void lock_mtx_or_sem(std::mutex& mtx) {
@@ -39,6 +40,7 @@ void task_4_writer(std::mutex& mtx, std::deque<std::string>& deq, const int writ
 }
 
 void task_4_reader(std::mutex& mtx, std::deque<std::string>& deq, const int reader_num, int& news_left) {
+    pid_t currentPid = getpid();
     while (true) {
         std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
 
@@ -51,7 +53,7 @@ void task_4_reader(std::mutex& mtx, std::deque<std::string>& deq, const int read
         deq.pop_back();
         news_left--;
         unlock_mtx_or_sem(mtx);
-        printf("reader #%d read news: \"%s\"\n", reader_num, n.c_str());
+        printf("[%d] reader #%d read news: \"%s\"\n", currentPid, reader_num, n.c_str());
     }
 }
 
@@ -112,6 +114,7 @@ std::string task_5_str_state(const int state) {
 }
 
 void task_5_thread(std::mutex& mtx, const int p_num, const int loop_count) {
+    pid_t currentPid = getpid();
     for (int i = 0; i < loop_count; i++) {
         int state = -1;
         while (state < PUT_FORK2) {
@@ -119,7 +122,7 @@ void task_5_thread(std::mutex& mtx, const int p_num, const int loop_count) {
 
             lock_mtx_or_sem(mtx);
             state++;
-            printf("philosopher #%d: %s\n", p_num, task_5_str_state(state).c_str());
+            printf("[%d] philosopher #%d: %s\n", currentPid, p_num, task_5_str_state(state).c_str());
             unlock_mtx_or_sem(mtx);
         }
     }
@@ -147,6 +150,9 @@ void task5() {
 }
 
 void CALLBACK timer_cb(void* arg, const uint32_t timerLowValue, const uint32_t timerHighValue) {
+    if(getpid() != pid)
+        return;
+
     UNREFERENCED_PARAMETER(arg);
     UNREFERENCED_PARAMETER(timerLowValue);
     UNREFERENCED_PARAMETER(timerHighValue);
@@ -154,11 +160,10 @@ void CALLBACK timer_cb(void* arg, const uint32_t timerLowValue, const uint32_t t
     if(fork() == 0) {
         task3_4();
         task5();
+        exit(0);
     }/* else {
         wait(nullptr);
     }*/
-
-    printf("created process?\n");
 }
 
 void task6() {
@@ -183,6 +188,7 @@ int main(int argc, char** argv) {
     if(argc >= 2) {
         printf("Using semaphore %s to synchronize threads\n", argv[1]);
         sem = sem_open(argv[1], 0, 0644, 1);
+        pid = getpid();
 
         task6();
 
