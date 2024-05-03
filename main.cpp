@@ -18,7 +18,7 @@ uint32_t WINAPI task1_thread(void* param) {
     const auto par = static_cast<Task1ThreadParam*>(param);
 #ifndef NDEBUG
     const uint32_t num = par->threadNum;
-    printf("Thread #%d started: %ld\n", num, clock());
+    printf("Thread #%d started\n", num);
 #endif
     par->mtx->lock();
     (*par->counter)++;
@@ -32,7 +32,7 @@ uint32_t WINAPI task1_thread(void* param) {
     }
 
 #ifndef NDEBUG
-    printf("Thread #%d finished: %ld\n", num, clock());
+    printf("Thread #%d finished\n", num);
 #endif
     return 0;
 }
@@ -110,21 +110,9 @@ void task2() {
     delete[] threads;
 }
 
-void task6() {
-    /*
-     * Створити додаткову програму, яка запускає декілька раз першу програму з потоками відповідно з заданим розкладом (WaitableTimer).
-     * Внести зміну в об’єкти синхронізації, які потрібні.
-     */
-
-    // TODO: what
-}
-
 int main() {
-    //task1();
+    task1();
     task2();
-    /*task3_4();
-    task5();
-    task6();*/
 
     return 0;
 }

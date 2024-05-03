@@ -4,12 +4,9 @@
 #include <string>
 #include <vector>
 #include <thread>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <semaphore.h>
 #include <unistd.h>
 #include <windows.h>
-#include <sys/wait.h>
 
 sem_t* sem = nullptr;
 pid_t pid = 0;
@@ -113,17 +110,28 @@ std::string task_5_str_state(const int state) {
     }
 }
 
-void task_5_thread(std::mutex& mtx, const int p_num, const int loop_count) {
+void task_5_thread(std::mutex* forks, const int p_num, const int loop_count, const int philosopher_count) {
     pid_t currentPid = getpid();
     for (int i = 0; i < loop_count; i++) {
         int state = -1;
         while (state < PUT_FORK2) {
             std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
 
-            lock_mtx_or_sem(mtx);
             state++;
+            if(state == TAKE_FORK1) {
+                forks[p_num].lock();
+                printf("[%d] philosopher #%d: %s\n", currentPid, p_num, task_5_str_state(state).c_str());
+                state++;
+                forks[(p_num+1) % philosopher_count].lock();
+            }
+
             printf("[%d] philosopher #%d: %s\n", currentPid, p_num, task_5_str_state(state).c_str());
-            unlock_mtx_or_sem(mtx);
+            if(state == PUT_FORK1) {
+                forks[p_num].unlock();
+                state++;
+                printf("[%d] philosopher #%d: %s\n", currentPid, p_num, task_5_str_state(state).c_str());
+                forks[(p_num+1) % philosopher_count].unlock();
+            }
         }
     }
 }
@@ -135,18 +143,23 @@ void task5() {
      * Перевірити відсутність гонок та блокувань при використанні потоків в одній програмі.
      */
 
-    std::mutex mtx;
+    //  1 2 3 4
+    // f f f f
+
     std::vector<std::thread> threads;
     constexpr int philosopher_count = 4;
     constexpr int loop_count = 2;
+    auto* forks = new std::mutex[philosopher_count];
 
     for (int i = 0; i < philosopher_count; i++) {
-        threads.emplace_back(task_5_thread, std::ref(mtx), i, loop_count);
+        threads.emplace_back(task_5_thread, forks, i, loop_count, philosopher_count);
     }
 
     for (auto& thread : threads) {
         thread.join();
     }
+
+    delete[] forks;
 }
 
 void CALLBACK timer_cb(void* arg, const uint32_t timerLowValue, const uint32_t timerHighValue) {
@@ -161,9 +174,7 @@ void CALLBACK timer_cb(void* arg, const uint32_t timerLowValue, const uint32_t t
         task3_4();
         task5();
         exit(0);
-    }/* else {
-        wait(nullptr);
-    }*/
+    }
 }
 
 void task6() {
